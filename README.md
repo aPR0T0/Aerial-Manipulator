@@ -48,6 +48,23 @@ detailed tutorials and step-by-step guides. Follow these links to learn more abo
 - [Tutorials](https://isaac-sim.github.io/IsaacLab/main/source/tutorials/index.html)
 - [Available environments](https://isaac-sim.github.io/IsaacLab/main/source/overview/environments.html)
 
+### Aerial Manipulator Task
+
+To train the direct aerial manipulator task with RSL-RL:
+
+```bash
+OMNI_KIT_ACCEPT_EULA=YES uv run --active scripts/reinforcement_learning/rsl_rl/train.py \
+  --task aerial-manip-direct-v0 \
+  --num_envs 512
+```
+
+The task is defined here:
+
+- `source/isaaclab_tasks/isaaclab_tasks/direct/aerial_manipulator/__init__.py`: Registers `aerial-manip-direct-v0` in Gym and connects the task to the environment and agent configs.
+- `source/isaaclab_tasks/isaaclab_tasks/direct/aerial_manipulator/aerial_manipulator_env.py`: Implements `CustomQuadcopterEnv` and `CustomQuadcopterEnvCfg` (simulation setup, observations, rewards, resets, terminations).
+- `source/isaaclab_tasks/isaaclab_tasks/direct/aerial_manipulator/agents/rsl_rl_ppo_cfg.py`: Defines the RSL-RL PPO runner configuration used by the train command.
+- `source/isaaclab_assets/isaaclab_assets/robots/aerial_manip.py`: Defines `AERIAL_MANIP_CFG`, the robot articulation used by the environment.
+
 
 ## Isaac Sim Version Dependency
 
