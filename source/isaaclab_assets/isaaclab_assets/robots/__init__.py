@@ -24,6 +24,7 @@ from .kinova import *
 from .kuka_allegro import *
 from .pick_and_place import *
 from .quadcopter import *
+from .aerial_manip import *
 from .ridgeback_franka import *
 from .sawyer import *
 from .shadow_hand import *
