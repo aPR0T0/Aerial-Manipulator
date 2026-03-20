@@ -11,4 +11,7 @@
 *.jit filter=lfs diff=lfs merge=lfs -text
 *.hdf5 filter=lfs diff=lfs merge=lfs -text
 
+# Keep local validation videos as regular git blobs.
+assets/*.mp4 -filter -diff -merge -text
+
 *.bat text eol=crlf

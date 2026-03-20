@@ -92,6 +92,11 @@ OMNI_KIT_ACCEPT_EULA=YES uv run --active scripts/reinforcement_learning/rsl_rl/p
   --checkpoint logs/rsl_rl/aerial_manip_direct/2026-03-20_13-26-06/model_19.pt
 ```
 
+Validation videos:
+
+- [Training run video](assets/train.mp4)
+- [Playback run video](assets/play.mp4)
+
 
 ## Isaac Sim Version Dependency
 
