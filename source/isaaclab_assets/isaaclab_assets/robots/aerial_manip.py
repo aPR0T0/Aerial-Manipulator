@@ -7,19 +7,39 @@
 
 from __future__ import annotations
 
+import os
+
 import isaaclab.sim as sim_utils
 from isaaclab.actuators import ImplicitActuatorCfg
 from isaaclab.assets import ArticulationCfg
-from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
+
+from .. import ISAACLAB_ASSETS_DATA_DIR
 
 ##
 # Configuration
 ##
 
+_AERIAL_MANIP_URDF_PATH = os.path.join(
+    ISAACLAB_ASSETS_DATA_DIR,
+    "robots",
+    "aerial_manipulator",
+    "simple_mesh",
+    "simple_mesh_aerial_manipulator.urdf",
+)
+
+
 AERIAL_MANIP_CFG = ArticulationCfg(
     prim_path="{ENV_REGEX_NS}/Robot",
-    spawn=sim_utils.UsdFileCfg(
-        usd_path=f"{ISAAC_NUCLEUS_DIR}/Robots/Bitcraze/Crazyflie/cf2x.usd",
+    spawn=sim_utils.UrdfFileCfg(
+        asset_path=_AERIAL_MANIP_URDF_PATH,
+        root_link_name="base_link",
+        fix_base=False,
+        merge_fixed_joints=False,
+        make_instanceable=False,
+        joint_drive=sim_utils.UrdfConverterCfg.JointDriveCfg(
+            target_type="velocity",
+            gains=sim_utils.UrdfConverterCfg.JointDriveCfg.PDGainsCfg(stiffness=120.0, damping=0.0),
+        ),
         rigid_props=sim_utils.RigidBodyPropertiesCfg(
             disable_gravity=False,
             max_depenetration_velocity=10.0,
@@ -37,21 +57,22 @@ AERIAL_MANIP_CFG = ArticulationCfg(
     init_state=ArticulationCfg.InitialStateCfg(
         pos=(0.0, 0.0, 0.5),
         joint_pos={
-            ".*": 0.0,
+            "manipulator_joint_1": 0.0,
+            "manipulator_joint_2": 0.0,
         },
         joint_vel={
-            "m1_joint": 200.0,
-            "m2_joint": -200.0,
-            "m3_joint": 200.0,
-            "m4_joint": -200.0,
+            "manipulator_joint_1": 0.0,
+            "manipulator_joint_2": 0.0,
         },
     ),
     actuators={
-        "dummy": ImplicitActuatorCfg(
-            joint_names_expr=[".*"],
+        "manipulator": ImplicitActuatorCfg(
+            joint_names_expr=["manipulator_joint_.*"],
+            effort_limit_sim={"manipulator_joint_1": 0.25, "manipulator_joint_2": 0.15},
+            velocity_limit_sim={"manipulator_joint_1": 14.0, "manipulator_joint_2": 18.0},
             stiffness=0.0,
-            damping=0.0,
+            damping=8.0,
         ),
     },
 )
-"""Configuration for the Crazyflie quadcopter."""
+"""Configuration for a minimal aerial manipulator (2-DOF arm on drone body)."""

@@ -64,6 +64,33 @@ The task is defined here:
 - `source/isaaclab_tasks/isaaclab_tasks/direct/aerial_manipulator/aerial_manipulator_env.py`: Implements `CustomQuadcopterEnv` and `CustomQuadcopterEnvCfg` (simulation setup, observations, rewards, resets, terminations).
 - `source/isaaclab_tasks/isaaclab_tasks/direct/aerial_manipulator/agents/rsl_rl_ppo_cfg.py`: Defines the RSL-RL PPO runner configuration used by the train command.
 - `source/isaaclab_assets/isaaclab_assets/robots/aerial_manip.py`: Defines `AERIAL_MANIP_CFG`, the robot articulation used by the environment.
+- `source/isaaclab_assets/data/robots/aerial_manipulator/simple_mesh/simple_mesh_aerial_manipulator.urdf`: Mesh-based aerial-manipulator URDF used by `AERIAL_MANIP_CFG`.
+- `source/isaaclab_assets/data/robots/aerial_manipulator/simple_mesh/meshes/*.stl`: STL meshes required by the URDF.
+
+Latest local validation (mesh-based aerial manipulator):
+
+```bash
+OMNI_KIT_ACCEPT_EULA=YES uv run --active scripts/reinforcement_learning/rsl_rl/train.py \
+  --task aerial-manip-direct-v0 \
+  --num_envs 128 \
+  --max_iterations 20 \
+  --headless
+```
+
+This run completed successfully and produced a checkpoint at:
+
+- `logs/rsl_rl/aerial_manip_direct/2026-03-20_13-26-06/model_19.pt`
+
+Playback test command:
+
+```bash
+OMNI_KIT_ACCEPT_EULA=YES uv run --active scripts/reinforcement_learning/rsl_rl/play.py \
+  --task aerial-manip-direct-v0 \
+  --headless \
+  --video \
+  --video_length 150 \
+  --checkpoint logs/rsl_rl/aerial_manip_direct/2026-03-20_13-26-06/model_19.pt
+```
 
 
 ## Isaac Sim Version Dependency

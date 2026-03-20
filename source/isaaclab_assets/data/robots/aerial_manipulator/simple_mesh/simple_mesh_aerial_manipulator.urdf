@@ -1,0 +1,230 @@
+<?xml version="1.0"?>
+<robot name="simple_mesh_aerial_manipulator">
+
+  <material name="chassis_gray">
+    <color rgba="0.35 0.35 0.35 1.0"/>
+  </material>
+  <material name="arm_black">
+    <color rgba="0.15 0.15 0.15 1.0"/>
+  </material>
+  <material name="ee_red">
+    <color rgba="0.8 0.2 0.2 1.0"/>
+  </material>
+
+  <link name="base_link">
+    <inertial>
+      <origin xyz="0 0 0"/>
+      <mass value="0.04"/>
+      <inertia ixx="3.2e-5" ixy="0.0" ixz="0.0" iyy="3.2e-5" iyz="0.0" izz="6.0e-5"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="meshes/base_link.stl"/>
+      </geometry>
+      <material name="chassis_gray"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="meshes/base_link.stl"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="prop1">
+    <inertial>
+      <origin xyz="0 0 0"/>
+      <mass value="0.001"/>
+      <inertia ixx="1.0e-8" ixy="0.0" ixz="0.0" iyy="1.0e-8" iyz="0.0" izz="1.0e-8"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="meshes/prop.stl"/>
+      </geometry>
+      <material name="chassis_gray"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="meshes/prop.stl"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="prop2">
+    <inertial>
+      <origin xyz="0 0 0"/>
+      <mass value="0.001"/>
+      <inertia ixx="1.0e-8" ixy="0.0" ixz="0.0" iyy="1.0e-8" iyz="0.0" izz="1.0e-8"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 1.5707963268"/>
+      <geometry>
+        <mesh filename="meshes/prop.stl"/>
+      </geometry>
+      <material name="chassis_gray"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 1.5707963268"/>
+      <geometry>
+        <mesh filename="meshes/prop.stl"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="prop3">
+    <inertial>
+      <origin xyz="0 0 0"/>
+      <mass value="0.001"/>
+      <inertia ixx="1.0e-8" ixy="0.0" ixz="0.0" iyy="1.0e-8" iyz="0.0" izz="1.0e-8"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="meshes/prop.stl"/>
+      </geometry>
+      <material name="chassis_gray"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="meshes/prop.stl"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="prop4">
+    <inertial>
+      <origin xyz="0 0 0"/>
+      <mass value="0.001"/>
+      <inertia ixx="1.0e-8" ixy="0.0" ixz="0.0" iyy="1.0e-8" iyz="0.0" izz="1.0e-8"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 1.5707963268"/>
+      <geometry>
+        <mesh filename="meshes/prop.stl"/>
+      </geometry>
+      <material name="chassis_gray"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 1.5707963268"/>
+      <geometry>
+        <mesh filename="meshes/prop.stl"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="prop1_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="prop1"/>
+    <origin xyz="0.05 0.05 0.01" rpy="0 0 0"/>
+  </joint>
+
+  <joint name="prop2_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="prop2"/>
+    <origin xyz="-0.05 0.05 0.01" rpy="0 0 0"/>
+  </joint>
+
+  <joint name="prop3_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="prop3"/>
+    <origin xyz="-0.05 -0.05 0.01" rpy="0 0 0"/>
+  </joint>
+
+  <joint name="prop4_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="prop4"/>
+    <origin xyz="0.05 -0.05 0.01" rpy="0 0 0"/>
+  </joint>
+
+  <link name="arm_link_1">
+    <inertial>
+      <origin xyz="0 0 -0.06"/>
+      <mass value="0.008"/>
+      <inertia ixx="9.8e-6" ixy="0.0" ixz="0.0" iyy="9.8e-6" iyz="0.0" izz="3.0e-7"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 -0.06"/>
+      <geometry>
+        <mesh filename="meshes/arm_link_1.stl"/>
+      </geometry>
+      <material name="arm_black"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 -0.06"/>
+      <geometry>
+        <mesh filename="meshes/arm_link_1.stl"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="arm_link_2">
+    <inertial>
+      <origin xyz="0 0 -0.05"/>
+      <mass value="0.006"/>
+      <inertia ixx="5.2e-6" ixy="0.0" ixz="0.0" iyy="5.2e-6" iyz="0.0" izz="2.0e-7"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 -0.05"/>
+      <geometry>
+        <mesh filename="meshes/arm_link_2.stl"/>
+      </geometry>
+      <material name="arm_black"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 -0.05"/>
+      <geometry>
+        <mesh filename="meshes/arm_link_2.stl"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="end_effector">
+    <inertial>
+      <origin xyz="0 0 0"/>
+      <mass value="0.002"/>
+      <inertia ixx="1.5e-7" ixy="0.0" ixz="0.0" iyy="1.5e-7" iyz="0.0" izz="1.5e-7"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="meshes/end_effector.stl"/>
+      </geometry>
+      <material name="ee_red"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="meshes/end_effector.stl"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="manipulator_joint_1" type="revolute">
+    <parent link="base_link"/>
+    <child link="arm_link_1"/>
+    <origin xyz="0 0 -0.012" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-1.2" upper="1.2" effort="0.25" velocity="14.0"/>
+    <dynamics damping="0.02" friction="0.0"/>
+  </joint>
+
+  <joint name="manipulator_joint_2" type="revolute">
+    <parent link="arm_link_1"/>
+    <child link="arm_link_2"/>
+    <origin xyz="0 0 -0.12" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-1.5" upper="1.5" effort="0.15" velocity="18.0"/>
+    <dynamics damping="0.015" friction="0.0"/>
+  </joint>
+
+  <joint name="ee_fixed" type="fixed">
+    <parent link="arm_link_2"/>
+    <child link="end_effector"/>
+    <origin xyz="0 0 -0.1" rpy="0 0 0"/>
+  </joint>
+
+</robot>
