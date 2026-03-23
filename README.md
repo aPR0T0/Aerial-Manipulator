@@ -48,30 +48,100 @@ detailed tutorials and step-by-step guides. Follow these links to learn more abo
 - [Tutorials](https://isaac-sim.github.io/IsaacLab/main/source/tutorials/index.html)
 - [Available environments](https://isaac-sim.github.io/IsaacLab/main/source/overview/environments.html)
 
-### Aerial Manipulator Task
+### Aerial Manipulator Tasks
 
-To train the direct aerial manipulator task with RSL-RL:
+You can now train two CLI-selectable aerial manipulator tasks:
+
+- `pose_reach`: drone reaches the goal while the manipulator keeps moving with random boundary-driven motion.
+- `optimal_pose_reach`: drone and manipulator are both controlled by the policy to reach quickly and stabilize at goal.
+
+To train `pose_reach` with RSL-RL:
 
 ```bash
 OMNI_KIT_ACCEPT_EULA=YES uv run --active scripts/reinforcement_learning/rsl_rl/train.py \
-  --task aerial-manip-direct-v0 \
+  --task pose_reach \
   --num_envs 512
 ```
 
+To train `optimal_pose_reach` with RSL-RL:
+
+```bash
+OMNI_KIT_ACCEPT_EULA=YES uv run --active scripts/reinforcement_learning/rsl_rl/train.py \
+  --task optimal_pose_reach \
+  --num_envs 512
+```
+
+`aerial-manip-direct-v0` remains available as a backward-compatible alias to `pose_reach`.
+
 The task is defined here:
 
-- `source/isaaclab_tasks/isaaclab_tasks/direct/aerial_manipulator/__init__.py`: Registers `aerial-manip-direct-v0` in Gym and connects the task to the environment and agent configs.
-- `source/isaaclab_tasks/isaaclab_tasks/direct/aerial_manipulator/aerial_manipulator_env.py`: Implements `CustomQuadcopterEnv` and `CustomQuadcopterEnvCfg` (simulation setup, observations, rewards, resets, terminations).
+- `source/isaaclab_tasks/isaaclab_tasks/direct/aerial_manipulator/__init__.py`: Registers `pose_reach`, `optimal_pose_reach`, and alias `aerial-manip-direct-v0` in Gym.
+- `source/isaaclab_tasks/isaaclab_tasks/direct/aerial_manipulator/pose_reach_env.py`: Implements `PoseReachEnv` and `PoseReachEnvCfg`.
+- `source/isaaclab_tasks/isaaclab_tasks/direct/aerial_manipulator/optimal_pose_reach_env.py`: Implements `OptimalPoseReachEnv` and `OptimalPoseReachEnvCfg`.
 - `source/isaaclab_tasks/isaaclab_tasks/direct/aerial_manipulator/agents/rsl_rl_ppo_cfg.py`: Defines the RSL-RL PPO runner configuration used by the train command.
 - `source/isaaclab_assets/isaaclab_assets/robots/aerial_manip.py`: Defines `AERIAL_MANIP_CFG`, the robot articulation used by the environment.
 - `source/isaaclab_assets/data/robots/aerial_manipulator/simple_mesh/simple_mesh_aerial_manipulator.urdf`: Mesh-based aerial-manipulator URDF used by `AERIAL_MANIP_CFG`.
 - `source/isaaclab_assets/data/robots/aerial_manipulator/simple_mesh/meshes/*.stl`: STL meshes required by the URDF.
 
-Latest local validation (mesh-based aerial manipulator):
+### How To Add a New Aerial Manipulator Task
+
+To add a new CLI-selectable task (for example `energy_pose_reach`), follow this pattern:
+
+1. Add a new environment module under `source/isaaclab_tasks/isaaclab_tasks/direct/aerial_manipulator/`.
+   - Recommended: subclass an existing task to reuse setup and only override what changes.
+   - Example shape:
+
+```python
+from isaaclab.utils import configclass
+
+from .pose_reach_env import PoseReachEnv, PoseReachEnvCfg
+
+
+@configclass
+class EnergyPoseReachEnvCfg(PoseReachEnvCfg):
+    action_space = 6
+    # task-specific reward scales / thresholds
+
+
+class EnergyPoseReachEnv(PoseReachEnv):
+    cfg: EnergyPoseReachEnvCfg
+    # override _pre_physics_step, _apply_action, _get_rewards, _get_dones, _reset_idx as needed
+```
+
+2. Register the task in `source/isaaclab_tasks/isaaclab_tasks/direct/aerial_manipulator/__init__.py`.
+
+```python
+gym.register(
+    id="energy_pose_reach",
+    entry_point=f"{__name__}.energy_pose_reach_env:EnergyPoseReachEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.energy_pose_reach_env:EnergyPoseReachEnvCfg",
+        "rl_games_cfg_entry_point": f"{agents.__name__}:rl_games_ppo_cfg.yaml",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:EnergyPoseReachPPORunnerCfg",
+        "skrl_cfg_entry_point": f"{agents.__name__}:skrl_ppo_cfg.yaml",
+    },
+)
+```
+
+3. (Optional but recommended) add a dedicated runner config in `source/isaaclab_tasks/isaaclab_tasks/direct/aerial_manipulator/agents/rsl_rl_ppo_cfg.py`.
+   - Recommended: subclass `CustomQuadcopterPPORunnerCfg` and set a unique `experiment_name`.
+
+4. Smoke test training with your task id:
 
 ```bash
 OMNI_KIT_ACCEPT_EULA=YES uv run --active scripts/reinforcement_learning/rsl_rl/train.py \
-  --task aerial-manip-direct-v0 \
+  --task energy_pose_reach \
+  --num_envs 128 \
+  --max_iterations 20 \
+  --headless
+```
+
+Latest local validation (`optimal_pose_reach` smoke run):
+
+```bash
+OMNI_KIT_ACCEPT_EULA=YES uv run --active scripts/reinforcement_learning/rsl_rl/train.py \
+  --task optimal_pose_reach \
   --num_envs 128 \
   --max_iterations 20 \
   --headless
@@ -79,17 +149,17 @@ OMNI_KIT_ACCEPT_EULA=YES uv run --active scripts/reinforcement_learning/rsl_rl/t
 
 This run completed successfully and produced a checkpoint at:
 
-- `logs/rsl_rl/aerial_manip_direct/2026-03-20_13-26-06/model_19.pt`
+- `logs/rsl_rl/aerial_manip_optimal_pose_reach/2026-03-23_16-56-18/model_19.pt`
 
 Playback test command:
 
 ```bash
 OMNI_KIT_ACCEPT_EULA=YES uv run --active scripts/reinforcement_learning/rsl_rl/play.py \
-  --task aerial-manip-direct-v0 \
+  --task optimal_pose_reach \
   --headless \
   --video \
   --video_length 150 \
-  --checkpoint logs/rsl_rl/aerial_manip_direct/2026-03-20_13-26-06/model_19.pt
+  --checkpoint logs/rsl_rl/aerial_manip_optimal_pose_reach/2026-03-23_16-56-18/model_19.pt
 ```
 
 Validation videos:

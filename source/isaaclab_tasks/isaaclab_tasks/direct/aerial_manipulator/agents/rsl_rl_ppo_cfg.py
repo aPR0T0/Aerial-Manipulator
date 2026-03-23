@@ -36,3 +36,8 @@ class CustomQuadcopterPPORunnerCfg(RslRlOnPolicyRunnerCfg):
         desired_kl=0.01,
         max_grad_norm=1.0,
     )
+
+
+@configclass
+class OptimalPoseReachPPORunnerCfg(CustomQuadcopterPPORunnerCfg):
+    experiment_name = "aerial_manip_optimal_pose_reach"
