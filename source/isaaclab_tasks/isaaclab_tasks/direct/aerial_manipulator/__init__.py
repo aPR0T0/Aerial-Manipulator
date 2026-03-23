@@ -38,6 +38,18 @@ gym.register(
 )
 
 gym.register(
+    id="cube_ee_reach",
+    entry_point=f"{__name__}.cube_ee_reach_env:CubeEeReachEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.cube_ee_reach_env:CubeEeReachEnvCfg",
+        "rl_games_cfg_entry_point": f"{agents.__name__}:rl_games_ppo_cfg.yaml",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:CubeEeReachPPORunnerCfg",
+        "skrl_cfg_entry_point": f"{agents.__name__}:skrl_ppo_cfg.yaml",
+    },
+)
+
+gym.register(
     id="aerial-manip-direct-v0",
     entry_point=f"{__name__}.pose_reach_env:PoseReachEnv",
     disable_env_checker=True,

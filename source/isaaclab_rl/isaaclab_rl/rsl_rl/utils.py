@@ -49,7 +49,7 @@ def handle_deprecated_rsl_rl_cfg(agent_cfg: RslRlBaseRunnerCfg, installed_versio
         if _has_non_missing_attr(agent_cfg, "empirical_normalization"):
             _handle_empirical_normalization(agent_cfg.policy, agent_cfg)
 
-        # remove optimizer argument for PPO only available in rsl-rl >= 4.0.0
+        # remove PPO arguments only available in newer rsl-rl versions
         from isaaclab_rl.rsl_rl import RslRlPpoAlgorithmCfg
 
         if hasattr(agent_cfg.algorithm, "optimizer") and isinstance(agent_cfg.algorithm, RslRlPpoAlgorithmCfg):
@@ -59,6 +59,14 @@ def handle_deprecated_rsl_rl_cfg(agent_cfg: RslRlBaseRunnerCfg, installed_versio
                     " updating rsl-rl to use this feature. Defaulting to `adam` optimizer."
                 )
             del agent_cfg.algorithm.optimizer
+
+        if hasattr(agent_cfg.algorithm, "share_cnn_encoders") and isinstance(agent_cfg.algorithm, RslRlPpoAlgorithmCfg):
+            if agent_cfg.algorithm.share_cnn_encoders:
+                print(
+                    "[WARNING]: The `share_cnn_encoders` parameter for PPO is only available for newer rsl-rl"
+                    " versions. Consider updating rsl-rl to use this feature. Ignoring this parameter."
+                )
+            del agent_cfg.algorithm.share_cnn_encoders
 
         # warn about model configurations only used in rsl-rl >= 4.0.0
         for model_name in _MODEL_CFG_NAMES:

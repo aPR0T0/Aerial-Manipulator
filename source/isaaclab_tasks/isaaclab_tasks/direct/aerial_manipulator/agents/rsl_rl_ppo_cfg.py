@@ -41,3 +41,8 @@ class CustomQuadcopterPPORunnerCfg(RslRlOnPolicyRunnerCfg):
 @configclass
 class OptimalPoseReachPPORunnerCfg(CustomQuadcopterPPORunnerCfg):
     experiment_name = "aerial_manip_optimal_pose_reach"
+
+
+@configclass
+class CubeEeReachPPORunnerCfg(CustomQuadcopterPPORunnerCfg):
+    experiment_name = "aerial_manip_cube_ee_reach"

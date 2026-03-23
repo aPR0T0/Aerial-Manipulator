@@ -50,10 +50,11 @@ detailed tutorials and step-by-step guides. Follow these links to learn more abo
 
 ### Aerial Manipulator Tasks
 
-You can now train two CLI-selectable aerial manipulator tasks:
+You can now train three CLI-selectable aerial manipulator tasks:
 
 - `pose_reach`: drone reaches the goal while the manipulator keeps moving with random boundary-driven motion.
 - `optimal_pose_reach`: drone and manipulator are both controlled by the policy to reach quickly and stabilize at goal.
+- `cube_ee_reach`: a small fixed cube is randomly placed on the ground and the policy controls the drone + manipulator to place the end-effector at the cube position (env-local absolute cube position is provided in observation).
 
 To train `pose_reach` with RSL-RL:
 
@@ -71,13 +72,22 @@ OMNI_KIT_ACCEPT_EULA=YES uv run --active scripts/reinforcement_learning/rsl_rl/t
   --num_envs 512
 ```
 
+To train `cube_ee_reach` with RSL-RL:
+
+```bash
+OMNI_KIT_ACCEPT_EULA=YES uv run --active scripts/reinforcement_learning/rsl_rl/train.py \
+  --task cube_ee_reach \
+  --num_envs 512
+```
+
 `aerial-manip-direct-v0` remains available as a backward-compatible alias to `pose_reach`.
 
 The task is defined here:
 
-- `source/isaaclab_tasks/isaaclab_tasks/direct/aerial_manipulator/__init__.py`: Registers `pose_reach`, `optimal_pose_reach`, and alias `aerial-manip-direct-v0` in Gym.
+- `source/isaaclab_tasks/isaaclab_tasks/direct/aerial_manipulator/__init__.py`: Registers `pose_reach`, `optimal_pose_reach`, `cube_ee_reach`, and alias `aerial-manip-direct-v0` in Gym.
 - `source/isaaclab_tasks/isaaclab_tasks/direct/aerial_manipulator/pose_reach_env.py`: Implements `PoseReachEnv` and `PoseReachEnvCfg`.
 - `source/isaaclab_tasks/isaaclab_tasks/direct/aerial_manipulator/optimal_pose_reach_env.py`: Implements `OptimalPoseReachEnv` and `OptimalPoseReachEnvCfg`.
+- `source/isaaclab_tasks/isaaclab_tasks/direct/aerial_manipulator/cube_ee_reach_env.py`: Implements `CubeEeReachEnv` and `CubeEeReachEnvCfg`.
 - `source/isaaclab_tasks/isaaclab_tasks/direct/aerial_manipulator/agents/rsl_rl_ppo_cfg.py`: Defines the RSL-RL PPO runner configuration used by the train command.
 - `source/isaaclab_assets/isaaclab_assets/robots/aerial_manip.py`: Defines `AERIAL_MANIP_CFG`, the robot articulation used by the environment.
 - `source/isaaclab_assets/data/robots/aerial_manipulator/simple_mesh/simple_mesh_aerial_manipulator.urdf`: Mesh-based aerial-manipulator URDF used by `AERIAL_MANIP_CFG`.
