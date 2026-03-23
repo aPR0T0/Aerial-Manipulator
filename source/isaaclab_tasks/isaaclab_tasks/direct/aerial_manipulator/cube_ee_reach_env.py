@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+import math
+
 import gymnasium as gym
 import torch
 
@@ -120,17 +122,23 @@ class CubeEeReachEnvCfg(DirectRLEnvCfg):
         ),
         init_state=RigidObjectCfg.InitialStateCfg(pos=(0.0, 0.0, 0.015), rot=(1.0, 0.0, 0.0, 0.0)),
     )
-    cube_xy_position_range = 0.8
+    cube_xy_position_range = 0.5
     cube_height = 0.015
+    ee_goal_height_offset = 0.1
 
     # reward scales
-    ee_distance_reward_scale = 50.0
-    ee_progress_reward_scale = 120.0
-    base_to_cube_reward_scale = 6.0
+    ee_distance_reward_scale = 20.0
+    ee_progress_reward_scale = 20.0
+    # base_to_goal_reward_scale = 6.0
+    base_xy_align_reward_scale = 22.0
+    base_above_ee_reward_scale = 8.0
+    base_above_ee_margin = 0.05
+    arm_vertical_straight_reward_scale = 8.0
+    arm_vertical_xy_tolerance = 0.05
     time_penalty_reward_scale = -1.0
-    lin_vel_reward_scale = -0.15
-    ang_vel_reward_scale = -0.04
-    tilt_reward_scale = -0.25
+    lin_vel_reward_scale = -0.10
+    ang_vel_reward_scale = -0.05
+    tilt_reward_scale = -0.5
     manip_joint_vel_reward_scale = -0.01
     manip_action_rate_reward_scale = -0.03
     success_bonus_reward = 12.0
@@ -139,6 +147,7 @@ class CubeEeReachEnvCfg(DirectRLEnvCfg):
     success_ee_distance = 0.04
     success_lin_vel_threshold = 0.35
     success_ang_vel_threshold = 0.65
+    success_hold_time_s = 2.0
 
 
 class CubeEeReachEnv(DirectRLEnv):
@@ -181,6 +190,8 @@ class CubeEeReachEnv(DirectRLEnv):
 
         self._previous_ee_distance = torch.zeros(self.num_envs, dtype=torch.float, device=self.device)
         self._distance_init_pending = torch.ones(self.num_envs, dtype=torch.bool, device=self.device)
+        self._success_hold_steps = torch.zeros(self.num_envs, dtype=torch.long, device=self.device)
+        self._success_hold_steps_required = max(1, math.ceil(self.cfg.success_hold_time_s / self.step_dt))
         self._success = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
 
         self._episode_sums = {
@@ -188,7 +199,10 @@ class CubeEeReachEnv(DirectRLEnv):
             for key in [
                 "ee_distance",
                 "ee_progress",
-                "base_to_cube",
+                # "base_to_goal",
+                "base_xy_align",
+                "base_above_ee",
+                "arm_vertical_straight",
                 "time_penalty",
                 "lin_vel",
                 "ang_vel",
@@ -237,6 +251,30 @@ class CubeEeReachEnv(DirectRLEnv):
             body_ids=self._body_id, forces=self._thrust, torques=self._moment
         )
 
+    def _compute_ee_goal_pos_w(self) -> torch.Tensor:
+        ee_goal_pos_w = self._cube.data.root_pos_w.clone()
+        ee_goal_pos_w[:, 2] += self.cfg.ee_goal_height_offset
+        return ee_goal_pos_w
+
+    def _compute_goal_stable_mask(self) -> tuple[torch.Tensor, torch.Tensor]:
+        ee_goal_pos_w = self._compute_ee_goal_pos_w()
+        ee_pos_w = self._robot.data.body_pos_w[:, self._ee_body_idx]
+        root_lin_vel_b = self._robot.data.root_lin_vel_b
+        root_ang_vel_b = self._robot.data.root_ang_vel_b
+
+        ee_distance = torch.linalg.norm(ee_goal_pos_w - ee_pos_w, dim=1)
+        lin_speed = torch.linalg.norm(root_lin_vel_b, dim=1)
+        ang_speed = torch.linalg.norm(root_ang_vel_b, dim=1)
+
+        stable_mask = torch.logical_and(
+            ee_distance < self.cfg.success_ee_distance,
+            torch.logical_and(
+                lin_speed < self.cfg.success_lin_vel_threshold,
+                ang_speed < self.cfg.success_ang_vel_threshold,
+            ),
+        )
+        return stable_mask, ee_distance
+
     def _apply_manipulator_actions(self):
         joint_pos = self._robot.data.joint_pos[:, self._manip_joint_ids_tensor]
         joint_vel = self._robot.data.joint_vel[:, self._manip_joint_ids_tensor]
@@ -269,11 +307,14 @@ class CubeEeReachEnv(DirectRLEnv):
 
     def _get_observations(self) -> dict:
         cube_pos_l = self._cube.data.root_pos_w - self.scene.env_origins
+        ee_goal_pos_l = cube_pos_l.clone()
+        ee_goal_pos_l[:, 2] += self.cfg.ee_goal_height_offset
+
         ee_pos_l = self._robot.data.body_pos_w[:, self._ee_body_idx] - self.scene.env_origins
-        ee_to_cube_l = cube_pos_l - ee_pos_l
+        ee_to_goal_l = ee_goal_pos_l - ee_pos_l
 
         root_pos_l = self._robot.data.root_pos_w - self.scene.env_origins
-        base_to_cube_l = cube_pos_l - root_pos_l
+        # base_to_goal_l = ee_goal_pos_l - root_pos_l
 
         joint_pos = self._robot.data.joint_pos[:, self._manip_joint_ids_tensor]
         joint_vel = self._robot.data.joint_vel[:, self._manip_joint_ids_tensor]
@@ -294,8 +335,8 @@ class CubeEeReachEnv(DirectRLEnv):
                 self._robot.data.projected_gravity_b,
                 cube_pos_l,
                 ee_pos_l,
-                ee_to_cube_l,
-                base_to_cube_l,
+                ee_to_goal_l,
+                # base_to_goal_l,
                 joint_pos_norm,
                 joint_vel_norm,
             ],
@@ -307,15 +348,22 @@ class CubeEeReachEnv(DirectRLEnv):
         root_lin_vel_b = self._robot.data.root_lin_vel_b
         root_ang_vel_b = self._robot.data.root_ang_vel_b
 
+        ee_goal_pos_w = self._compute_ee_goal_pos_w()
         cube_pos_w = self._cube.data.root_pos_w
         ee_pos_w = self._robot.data.body_pos_w[:, self._ee_body_idx]
         root_pos_w = self._robot.data.root_pos_w
 
-        ee_distance = torch.linalg.norm(cube_pos_w - ee_pos_w, dim=1)
-        base_distance = torch.linalg.norm(cube_pos_w - root_pos_w, dim=1)
+        stable_mask, ee_distance = self._compute_goal_stable_mask()
+        # base_distance = torch.linalg.norm(ee_goal_pos_w - root_pos_w, dim=1)
+        base_xy_distance = torch.linalg.norm(cube_pos_w[:, :2] - root_pos_w[:, :2], dim=1)
+        base_minus_ee_z = root_pos_w[:, 2] - ee_pos_w[:, 2]
+        base_to_ee_xy_distance = torch.linalg.norm(root_pos_w[:, :2] - ee_pos_w[:, :2], dim=1)
 
         ee_distance_mapped = 1 - torch.tanh(ee_distance / 0.12)
-        base_distance_mapped = 1 - torch.tanh(base_distance / 0.8)
+        # base_distance_mapped = 1 - torch.tanh(base_distance / 0.8)
+        base_xy_align_mapped = 1 - torch.tanh(base_xy_distance / 0.3)
+        base_above_ee_mapped = torch.tanh((base_minus_ee_z - self.cfg.base_above_ee_margin) / 0.05)
+        arm_vertical_straight_mapped = 1 - torch.tanh(base_to_ee_xy_distance / self.cfg.arm_vertical_xy_tolerance)
         ee_progress = torch.where(
             self._distance_init_pending,
             torch.zeros_like(ee_distance),
@@ -328,27 +376,27 @@ class CubeEeReachEnv(DirectRLEnv):
         manip_joint_vel = torch.sum(torch.square(self._robot.data.joint_vel[:, self._manip_joint_ids_tensor]), dim=1)
         manip_action_rate = torch.sum(torch.square(self._manip_actions - self._previous_manip_actions), dim=1)
 
-        lin_speed = torch.linalg.norm(root_lin_vel_b, dim=1)
-        ang_speed = torch.linalg.norm(root_ang_vel_b, dim=1)
-        self._success = torch.logical_and(
-            ee_distance < self.cfg.success_ee_distance,
-            torch.logical_and(
-                lin_speed < self.cfg.success_lin_vel_threshold,
-                ang_speed < self.cfg.success_ang_vel_threshold,
-            ),
+        success_hold_steps = torch.where(
+            stable_mask, self._success_hold_steps + 1, torch.zeros_like(self._success_hold_steps)
         )
+        success_after_hold = success_hold_steps >= self._success_hold_steps_required
 
         rewards = {
             "ee_distance": ee_distance_mapped * self.cfg.ee_distance_reward_scale * self.step_dt,
             "ee_progress": ee_progress * self.cfg.ee_progress_reward_scale,
-            "base_to_cube": base_distance_mapped * self.cfg.base_to_cube_reward_scale * self.step_dt,
+            # "base_to_goal": base_distance_mapped * self.cfg.base_to_goal_reward_scale * self.step_dt,
+            "base_xy_align": base_xy_align_mapped * self.cfg.base_xy_align_reward_scale * self.step_dt,
+            "base_above_ee": base_above_ee_mapped * self.cfg.base_above_ee_reward_scale * self.step_dt,
+            "arm_vertical_straight": arm_vertical_straight_mapped
+            * self.cfg.arm_vertical_straight_reward_scale
+            * self.step_dt,
             "time_penalty": torch.full_like(ee_distance, self.cfg.time_penalty_reward_scale * self.step_dt),
             "lin_vel": lin_vel_sq * self.cfg.lin_vel_reward_scale * self.step_dt,
             "ang_vel": ang_vel_sq * self.cfg.ang_vel_reward_scale * self.step_dt,
             "tilt": tilt_error * self.cfg.tilt_reward_scale * self.step_dt,
             "manip_joint_vel": manip_joint_vel * self.cfg.manip_joint_vel_reward_scale * self.step_dt,
             "manip_action_rate": manip_action_rate * self.cfg.manip_action_rate_reward_scale * self.step_dt,
-            "success_bonus": self._success.float() * self.cfg.success_bonus_reward,
+            "success_bonus": success_after_hold.float() * self.cfg.success_bonus_reward,
         }
 
         reward = torch.sum(torch.stack(list(rewards.values())), dim=0)
@@ -362,22 +410,14 @@ class CubeEeReachEnv(DirectRLEnv):
         return reward
 
     def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:
-        cube_pos_w = self._cube.data.root_pos_w
-        ee_pos_w = self._robot.data.body_pos_w[:, self._ee_body_idx]
-        root_lin_vel_b = self._robot.data.root_lin_vel_b
-        root_ang_vel_b = self._robot.data.root_ang_vel_b
+        stable_mask, _ = self._compute_goal_stable_mask()
 
-        ee_distance = torch.linalg.norm(cube_pos_w - ee_pos_w, dim=1)
-        lin_speed = torch.linalg.norm(root_lin_vel_b, dim=1)
-        ang_speed = torch.linalg.norm(root_ang_vel_b, dim=1)
-
-        self._success = torch.logical_and(
-            ee_distance < self.cfg.success_ee_distance,
-            torch.logical_and(
-                lin_speed < self.cfg.success_lin_vel_threshold,
-                ang_speed < self.cfg.success_ang_vel_threshold,
-            ),
+        self._success_hold_steps = torch.where(
+            stable_mask,
+            self._success_hold_steps + 1,
+            torch.zeros_like(self._success_hold_steps),
         )
+        self._success = self._success_hold_steps >= self._success_hold_steps_required
 
         time_out = self.episode_length_buf >= self.max_episode_length - 1
         died = torch.logical_or(self._robot.data.root_pos_w[:, 2] < 0.1, self._robot.data.root_pos_w[:, 2] > 2.0)
@@ -390,13 +430,29 @@ class CubeEeReachEnv(DirectRLEnv):
         assert env_ids is not None
 
         successful_envs = self._success[env_ids]
+        ee_goal_pos_w = self._compute_ee_goal_pos_w()
 
-        final_ee_distance = torch.linalg.norm(
+        final_ee_goal_distance = torch.linalg.norm(
+            ee_goal_pos_w[env_ids] - self._robot.data.body_pos_w[env_ids, self._ee_body_idx],
+            dim=1,
+        ).mean()
+        final_ee_to_cube_distance = torch.linalg.norm(
             self._cube.data.root_pos_w[env_ids] - self._robot.data.body_pos_w[env_ids, self._ee_body_idx],
             dim=1,
         ).mean()
-        final_base_distance = torch.linalg.norm(
-            self._cube.data.root_pos_w[env_ids] - self._robot.data.root_pos_w[env_ids],
+        # final_base_distance = torch.linalg.norm(
+        #     ee_goal_pos_w[env_ids] - self._robot.data.root_pos_w[env_ids],
+        #     dim=1,
+        # ).mean()
+        final_base_xy_to_cube_distance = torch.linalg.norm(
+            self._cube.data.root_pos_w[env_ids, :2] - self._robot.data.root_pos_w[env_ids, :2],
+            dim=1,
+        ).mean()
+        final_base_minus_ee_z = torch.mean(
+            self._robot.data.root_pos_w[env_ids, 2] - self._robot.data.body_pos_w[env_ids, self._ee_body_idx, 2]
+        )
+        final_base_to_ee_xy_distance = torch.linalg.norm(
+            self._robot.data.root_pos_w[env_ids, :2] - self._robot.data.body_pos_w[env_ids, self._ee_body_idx, :2],
             dim=1,
         ).mean()
 
@@ -422,8 +478,12 @@ class CubeEeReachEnv(DirectRLEnv):
         extras["Episode_Termination/time_out"] = time_out_count
         extras["Metrics/success_rate"] = success_count / total_count
         extras["Metrics/time_to_success"] = success_time
-        extras["Metrics/final_ee_distance"] = final_ee_distance.item()
-        extras["Metrics/final_base_to_cube_distance"] = final_base_distance.item()
+        extras["Metrics/final_ee_goal_distance"] = final_ee_goal_distance.item()
+        extras["Metrics/final_ee_to_cube_distance"] = final_ee_to_cube_distance.item()
+        # extras["Metrics/final_base_to_goal_distance"] = final_base_distance.item()
+        extras["Metrics/final_base_xy_to_cube_distance"] = final_base_xy_to_cube_distance.item()
+        extras["Metrics/final_base_minus_ee_z"] = final_base_minus_ee_z.item()
+        extras["Metrics/final_base_to_ee_xy_distance"] = final_base_to_ee_xy_distance.item()
         extras["Metrics/manip_peak_joint_vel"] = torch.mean(self._episode_max_manip_vel[env_ids]).item()
         extras["Metrics/manip_peak_joint_acc"] = torch.mean(self._episode_max_manip_acc[env_ids]).item()
 
@@ -440,6 +500,7 @@ class CubeEeReachEnv(DirectRLEnv):
         self._actions[env_ids] = 0.0
         self._manip_actions[env_ids] = 0.0
         self._previous_manip_actions[env_ids] = 0.0
+        self._success_hold_steps[env_ids] = 0
         self._success[env_ids] = False
         self._distance_init_pending[env_ids] = True
 
@@ -499,17 +560,28 @@ class CubeEeReachEnv(DirectRLEnv):
                 ee_marker_cfg.prim_path = "/Visuals/Command/ee_position"
                 self.ee_pos_visualizer = VisualizationMarkers(ee_marker_cfg)
 
+            if not hasattr(self, "ee_goal_pos_visualizer"):
+                ee_goal_marker_cfg = CUBOID_MARKER_CFG.copy()
+                ee_goal_marker_cfg.markers["cuboid"].size = (0.02, 0.02, 0.02)
+                ee_goal_marker_cfg.prim_path = "/Visuals/Command/ee_goal_position"
+                self.ee_goal_pos_visualizer = VisualizationMarkers(ee_goal_marker_cfg)
+
             self.cube_pos_visualizer.set_visibility(True)
             self.ee_pos_visualizer.set_visibility(True)
+            self.ee_goal_pos_visualizer.set_visibility(True)
         else:
             if hasattr(self, "cube_pos_visualizer"):
                 self.cube_pos_visualizer.set_visibility(False)
             if hasattr(self, "ee_pos_visualizer"):
                 self.ee_pos_visualizer.set_visibility(False)
+            if hasattr(self, "ee_goal_pos_visualizer"):
+                self.ee_goal_pos_visualizer.set_visibility(False)
 
     def _debug_vis_callback(self, event):
         del event
         cube_pos_w = self._cube.data.root_pos_w
+        ee_goal_pos_w = self._compute_ee_goal_pos_w()
         ee_pos_w = self._robot.data.body_pos_w[:, self._ee_body_idx]
         self.cube_pos_visualizer.visualize(cube_pos_w)
         self.ee_pos_visualizer.visualize(ee_pos_w)
+        self.ee_goal_pos_visualizer.visualize(ee_goal_pos_w)

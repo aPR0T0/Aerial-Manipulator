@@ -54,7 +54,7 @@ You can now train three CLI-selectable aerial manipulator tasks:
 
 - `pose_reach`: drone reaches the goal while the manipulator keeps moving with random boundary-driven motion.
 - `optimal_pose_reach`: drone and manipulator are both controlled by the policy to reach quickly and stabilize at goal.
-- `cube_ee_reach`: a small fixed cube is randomly placed on the ground and the policy controls the drone + manipulator to place the end-effector at the cube position (env-local absolute cube position is provided in observation).
+- `cube_ee_reach`: a small fixed cube is randomly placed on the ground and the policy controls the drone + manipulator to place the end-effector at a safety hover target 0.1 m above the cube (env-local absolute cube position is provided in observation).
 
 To train `pose_reach` with RSL-RL:
 
@@ -79,6 +79,28 @@ OMNI_KIT_ACCEPT_EULA=YES uv run --active scripts/reinforcement_learning/rsl_rl/t
   --task cube_ee_reach \
   --num_envs 512
 ```
+
+#### Reward Design (Why These Terms)
+
+`optimal_pose_reach` (goal-reaching with drone + manipulator control) uses:
+
+- `distance_progress`: rewards reducing goal distance each step for faster convergence.
+- `distance_to_goal`: dense proximity shaping so policy still learns when far away.
+- `time_penalty`: encourages reaching the goal in less time.
+- `lin_vel`, `ang_vel`, `tilt`: penalize instability for smoother and safer flight.
+- `manip_joint_vel`, `manip_action_rate`: discourage aggressive arm motion and improve control smoothness.
+- `success_bonus`: reinforces truly successful goal-reaching behavior.
+
+`cube_ee_reach` (end-effector hover target above cube) uses:
+
+- `ee_distance`, `ee_progress`: drive end-effector to the hover target above the cube.
+- `base_xy_align`: keeps drone body centered over cube in XY for cleaner approach.
+- `base_above_ee`: keeps main body above end-effector to maintain safer geometry.
+- `arm_vertical_straight`: encourages near-vertical arm posture (small base-to-EE XY offset).
+- `lin_vel`, `ang_vel`, `tilt`, `manip_joint_vel`, `manip_action_rate`: stability and smoothness regularization.
+- `time_penalty` and `success_bonus`: incentivize quick completion while rewarding stable success.
+
+For `cube_ee_reach`, success termination is hold-based: the policy must satisfy the success condition continuously for a configurable duration (`success_hold_time_s` in `source/isaaclab_tasks/isaaclab_tasks/direct/aerial_manipulator/cube_ee_reach_env.py`).
 
 `aerial-manip-direct-v0` remains available as a backward-compatible alias to `pose_reach`.
 
