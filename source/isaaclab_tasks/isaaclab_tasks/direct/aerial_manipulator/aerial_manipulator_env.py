@@ -102,9 +102,9 @@ class CustomQuadcopterEnvCfg(DirectRLEnvCfg):
     manip_velocity_limit_ratio = 1.0
 
     # reward scales
-    lin_vel_reward_scale = -0.05
-    ang_vel_reward_scale = -0.01
-    distance_to_goal_reward_scale = 15.0
+    lin_vel_reward_scale = -0.25
+    ang_vel_reward_scale = -0.05
+    distance_to_goal_reward_scale = 60.0
 
 
 class CustomQuadcopterEnv(DirectRLEnv):
@@ -191,7 +191,7 @@ class CustomQuadcopterEnv(DirectRLEnv):
         joint_vel = self._robot.data.joint_vel[:, self._manip_joint_ids_tensor]
         joint_pos_limits = self._robot.data.soft_joint_pos_limits[:, self._manip_joint_ids_tensor]
         joint_vel_limits = self._robot.data.soft_joint_vel_limits[:, self._manip_joint_ids_tensor]
-        joint_vel_limits = torch.clamp(joint_vel_limits, min=1.0e-3, max=50.0)
+        joint_vel_limits = torch.clamp(joint_vel_limits, min=1.0e-3, max=30.0)
 
         joint_range = joint_pos_limits[..., 1] - joint_pos_limits[..., 0]
         boundary_margin = torch.minimum(

@@ -53,8 +53,8 @@ class CubeEeReachPPORunnerCfg(CustomQuadcopterPPORunnerCfg):
         init_noise_std=1.0,
         actor_obs_normalization=False,
         critic_obs_normalization=False,
-        actor_hidden_dims=[128, 64, 128],
-        critic_hidden_dims=[128, 64, 128],
+        actor_hidden_dims=[64, 64],
+        critic_hidden_dims=[64, 64],
         activation="elu",
     )
 
@@ -65,9 +65,9 @@ class CubeEeReachPPORunnerCfg(CustomQuadcopterPPORunnerCfg):
         entropy_coef=0.0,
         num_learning_epochs=5,
         num_mini_batches=4,
-        learning_rate=5.0e-4,
+        learning_rate=6.0e-4,
         schedule="adaptive",
-        gamma=0.99,
+        gamma=0.98,
         lam=0.95,
         desired_kl=0.01,
         max_grad_norm=1.0,

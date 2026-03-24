@@ -128,7 +128,7 @@ class CubeEeReachEnvCfg(DirectRLEnvCfg):
 
     # reward scales
     ee_distance_reward_scale = 20.0
-    ee_progress_reward_scale = 20.0
+    ee_progress_reward_scale = 30.0
     # base_to_goal_reward_scale = 6.0
     base_xy_align_reward_scale = 22.0
     base_above_ee_reward_scale = 8.0
@@ -136,18 +136,18 @@ class CubeEeReachEnvCfg(DirectRLEnvCfg):
     arm_vertical_straight_reward_scale = 8.0
     arm_vertical_xy_tolerance = 0.05
     time_penalty_reward_scale = -1.0
-    lin_vel_reward_scale = -0.10
-    ang_vel_reward_scale = -0.05
+    lin_vel_reward_scale = -0.50
+    ang_vel_reward_scale = -0.25
     tilt_reward_scale = -0.5
     manip_joint_vel_reward_scale = -0.01
     manip_action_rate_reward_scale = -0.03
-    success_bonus_reward = 12.0
+    success_bonus_reward = 15.0 #12 more might fuck it up
 
     # success criteria
     success_ee_distance = 0.04
     success_lin_vel_threshold = 0.35
-    success_ang_vel_threshold = 0.65
-    success_hold_time_s = 2.0
+    success_ang_vel_threshold = 0.50
+    success_hold_time_s = 1.0
 
 
 class CubeEeReachEnv(DirectRLEnv):
